@@ -1,41 +1,40 @@
+# TODO ASYNC...
 import operator
 from typing import Annotated, List
 from typing_extensions import TypedDict
 from langchain_core.messages import BaseMessage
 from langgraph.graph.message import add_messages
 
+RESET = "__RESET__"
 
-class ParentState(TypedDict): # ОБЯСНИТЬ ПОЛЯ
-    # входные данные
+def reports_reducer(left, right):
+    if right == [RESET]:
+        return []
+    return (left or []) + right
+
+class ParentState(TypedDict):
     question: str
     topic: str
-    format_style: str
     user_id: str
     is_pdf: bool
-
-    # вердикт фильтра
+    format_style: str
     reasoning: str
     pathway: str
-
-    # tool-calling цикл для fast track
     messages: Annotated[List[BaseMessage], add_messages]
-
-    # deep research (map-reduce)
     subtopics: List[str]
     user_approved: bool
-    analyst_reports: Annotated[List[str], operator.add]
-
-    # история диалога
-    history: List[str]
-    history_summary: str
-    turn_count: int
-
+    analyst_reports: Annotated[List[str], reports_reducer]
     final_report: str
-
+    history: List[str]
+    history_summary: List[str]
+    turn_count: int
+    turn_summary_count: int          # <-- добавить
 
 class AnalystState(TypedDict):
-    """Изолированный state для одного параллельного воркера (Send)."""
     subtopic: str
-    parent_topic: str
+    question: str
     user_id: str
     is_pdf: bool
+    messages: Annotated[List[BaseMessage], add_messages]
+    steps: int
+    report: str

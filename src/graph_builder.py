@@ -2,44 +2,26 @@ import sys
 import os
 
 root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
-from langchain_core.messages import AIMessage, HumanMessage
-from langgraph.graph import MessagesState
-from pydantic import BaseModel, Field
-from typing import Literal
 sys.path.append(root_dir)
-from langchain.chat_models import init_chat_model
-from langchain_openai import ChatOpenAI
-from langchain_anthropic import ChatAnthropic
-from src.settings import settings
-from typing_extensions import TypedDict
-from langchain_core.messages import AnyMessage, SystemMessage, HumanMessage
-from typing import Annotated
-from langgraph.graph.message import add_messages
+from typing import List, Literal
+from pydantic import BaseModel
+
 from langgraph.graph import StateGraph, START, END
-from langchain_core.messages import ToolMessage
-from langgraph.checkpoint.memory import MemorySaver
-from config import llm_for_star, llm_topics_human_in_the_loop, llm_reasonings, llm_answers_final_response
-from chunk_pdf import create_vectore_db_for_user
+from langgraph.graph.message import REMOVE_ALL_MESSAGES
+from langgraph.types import Send, interrupt, Command
 from langgraph.prebuilt import ToolNode
-
-
-from states import ParentState, Analyst_state, make_analyst_work
-from langgraph.types import interrupt, Comman
-# graph.py
-import json
-import operator
-from typing import List, Annotated
-from typing_extensions import TypedDict
-
-# Импорты из LangGraph и LangChain
-from langgraph.graph import StateGraph, START, END
-from langgraph.constants import Send
 from langgraph.checkpoint.memory import MemorySaver
-from langchain_core.messages import BaseMessage, SystemMessage, HumanMessage
-from tools import multiply, sum_, divide, web_search, search_wikipedia, search_scientific_papers, fetch_web_page_content, search_through_users_pdf
-from prompts import FIRST_FILTER_PROMPT, ADDITIONAL_PROMPT, FAST_ANSWER_PROMPT, GENERATE_TOPICS_PROMPT, RESEARCH_TOPICS_PROMPT, FINAL_SUMMARY_PROMPT
-from states import ParentState, AnalystState, FirstNode
-from config import llm_for_start, llm_topics_human_in_the_loop, llm_reasonings, llm_answers_final_response
+from langchain_core.messages import SystemMessage, HumanMessage, AIMessage, RemoveMessage
+
+from tools import (multiply, sum_, divide, web_search, search_wikipedia,
+                   search_scientific_papers, fetch_web_page_content, search_through_users_pdf)
+from prompts import (FIRST_FILTER_PROMPT, ADDITIONAL_PROMPT, FAST_ANSWER_PROMPT,
+                     GENERATE_TOPICS_PROMPT, RESEARCH_TOPICS_PROMPT, FINAL_SUMMARY_PROMPT,
+                     HISTORY_SUMMARY_PROMPT_1, HISTORY_SUMMARY_SUMMARY_PROMPT_1, HISTORY_SUMMARY_PROMPT_2, MAX_TOOL_STEPS_FAST, MAX_TOOL_STEPS)
+from states import ParentState, AnalystState, RESET
+from config import (llm_for_start, llm_topics_human_in_the_loop,
+                    llm_reasonings, llm_answers_final_response)
+
 
 
 tools_all = [multiply, sum_, divide, web_search, search_wikipedia, search_scientific_papers, fetch_web_page_content, search_through_users_pdf]
@@ -64,9 +46,9 @@ def build_history_context(state: ParentState) -> str:
     """Join an old history with the new one"""
     parts = []
     if state.get("history_summary"):
-        parts.append(f"[Composed history of previous diologe:]\n{state['history_summary']}")
+        parts.append("[Summary of earlier dialogue]\n" + "\n\n".join(state["history_summary"]))
     if state.get("history"):
-        parts.append("\n".join(state["history"]))
+        parts.append("[Recent turns]\n" + "\n\n".join(state["history"]))
     return "\n\n".join(parts) if parts else "No history context"
 
 
@@ -81,8 +63,8 @@ def filter_input_node(state: ParentState) -> dict:
     is_pdf=state["is_pdf"],
     )
 
-    llm_for_start.with_structured_output(InputFilterResponse)
-    verdict = llm_for_start.invoke(
+    llm_for_start_structured = llm_for_start.with_structured_output(InputFilterResponse)
+    verdict = llm_for_start_structured.invoke(
         [SystemMessage(content=first_analyser_prompt_text),
         HumanMessage(content=state["question"]+state.get("topic", ""),),
         SystemMessage(content=ADDITIONAL_PROMPT)
@@ -91,7 +73,7 @@ def filter_input_node(state: ParentState) -> dict:
     return {"reasoning": verdict.reasoning, "pathway": verdict.pathway}
 
 
-def route_after_filter(state: ParentState) -> Literal["FAST_TRACK", "DEEP_RESEARCH"]:
+def route_after_filter(state: ParentState) -> Literal["fast_track_node", "generate_subtopics_node"]:
     """fork path for add_conditional_edges."""
     print(state["reasoning"])
     if state["pathway"] == "FAST_TRACK":
@@ -115,19 +97,26 @@ def fast_track_node(state: ParentState) -> dict:
         return {"final_report": seed + [result]}
     else:
         llm_with_tools = llm_for_start.bind_tools(tools_fast)
-        result = llm_with_tools.invoke(state['masseges'])
-        return {"final_report": [result]}
+        result = llm_with_tools.invoke(state['messages'])
+        return {"messages": [result]}
 
 
 def route_after_fast_track(state: ParentState) -> Literal["tool_node_fast", "extract_final_answer_node"]:
-    last_message = state["messages"][-1]
-    if getattr(last_message, "tool_calls", None):
+    """Fork node for fast track with tools"""
+    last = state["messages"][-1]
+    ai_steps = sum(isinstance(m, AIMessage) for m in state["messages"])
+    if getattr(last, "tool_calls", None) and ai_steps <= MAX_TOOL_STEPS_FAST:
         return "tool_node_fast"
     return "extract_final_answer_node"
 
 
 def extract_final_answer_node(state: ParentState) -> dict:
-    return {"final_report": state["messages"][-1].content}
+    last = state["messages"][-1]
+    if getattr(last, "tool_calls", None):   # упёрлись в лимит, а модель всё ещё просит тул
+        last = llm_for_start.invoke(
+            state["messages"][:-1] + [HumanMessage(content="Give the final answer now, without using more tools")]
+        )
+    return {"final_report": last.content}
 
 
 def generate_subtopics_node(state: ParentState) -> dict:
@@ -141,7 +130,7 @@ def generate_subtopics_node(state: ParentState) -> dict:
     llm_analyser = llm_topics_human_in_the_loop.with_structured_output(SubtopicsClass)
     verdict = llm_analyser.invoke([SystemMessage(content=topics_prompt_text)])
 
-    return {"subtopics": verdict.subtopics} # Почему так а не DUMP
+    return {"subtopics": verdict.subtopics}
 
 
 def human_review_node(state: ParentState) -> dict:
@@ -165,24 +154,33 @@ def route_after_subtopics(state: ParentState) -> List[Send] | str:
         return [
                 Send("analyst_node", {
                     "subtopic": st,
-                    "parent_topic": state["topic"],
+                    "question": state["question"], 
                     "user_id": state["user_id"],
                     "is_pdf": state["is_pdf"],
                 })
                 for st in state["subtopics"]
             ]
 
-# TODO : Enable multiple times calling
-def analyst_node(state: AnalystState):
+def analyst_agent(state: AnalystState):
     """Research for a given subtopic"""
-    research_prompt_text = RESEARCH_TOPICS_PROMPT.format(
-                question=state["question"],
-                topic=state["topic"],
-                is_pdf=state["is_pdf"],
-        )
-    llm_smart_with_tools = llm_reasonings.bind_tools(tool_node_all)
-    result = llm_smart_with_tools.invoke([SystemMessage(content=research_prompt_text)])
-    return {"final_report_for_subtopic": [result.content]}
+    llm = llm_reasonings.bind_tools(tools_all)
+    if not state.get('messages'):
+        research_prompt_text = RESEARCH_TOPICS_PROMPT.format(
+                        question=state["question"],
+                        topic=state["subtopic"],
+                        is_pdf=state["is_pdf"],
+                )
+        
+        seed = [SystemMessage(content=research_prompt_text), HumanMessage(content=state["subtopic"])]
+        return {"messages": seed + [llm.invoke(seed)], "steps": 1}
+    return {"messages": [llm.invoke(state["messages"])], "steps": state["steps"] + 1}
+
+
+def route_after_analyst_agent(state: AnalystState) -> Literal["analyst_tools", "analyst_finish"]:
+    last = state["messages"][-1]
+    if getattr(last, "tool_calls", None) and state["steps"] < MAX_TOOL_STEPS:
+        return "analyst_tools"
+    return "analyst_finish"
  
 
 def final_summary_node(state: ParentState) -> dict:
@@ -195,5 +193,140 @@ def final_summary_node(state: ParentState) -> dict:
     return {"final_report": result.content}
 
 
+def update_history_node(state: ParentState) -> dict:
+    new_turn = f"Q: {state['question']}\nA: {state['final_report']}"
+    history = state.get("history", []) + [new_turn]
+    history_summary = list(state.get("history_summary", []))   # (1)
+    turn_count = state.get("turn_count", 0) + 1
+    turn_summary_count = state.get("turn_summary_count", 0) + 1
+
+    if turn_count % 7 == 0:
+        if turn_summary_count % 6 == 0:
+
+            summary_prompt = HISTORY_SUMMARY_PROMPT_1.format(
+                recent_turns="\n\n".join(history),
+            )
+            summary_result = llm_for_start.invoke([SystemMessage(content=summary_prompt)])
+            history_summary += [summary_result.content]
+
+            history_summary_prompt = HISTORY_SUMMARY_SUMMARY_PROMPT_1.format(
+                previous_summaries="\n\n".join(history_summary),
+            )
+            history_summary_result = llm_for_start.invoke([SystemMessage(content=history_summary_prompt)])
+
+            return {
+                "history": [],                                         
+                "history_summary": [history_summary_result.content],    
+                "turn_summary_count": 0,                               
+                "turn_count": 0,                                        
+            }
+
+        else:
+            summary_prompt = HISTORY_SUMMARY_PROMPT_2.format(
+                previous_summary="\n\n".join(history_summary) or "(not yet)",   # (5)
+                recent_turns="\n\n".join(history),
+            )
+            summary_result = llm_for_start.invoke([SystemMessage(content=summary_prompt)])
+            history_summary += [summary_result.content]
+            return {
+                "history": [],              
+                "history_summary": history_summary,
+                "turn_count": 0,            
+                "turn_summary_count": turn_summary_count,
+            }
+
+    else:
+        return {
+            "history": history,
+            "turn_count": turn_count,
+        }
 
 
+def reset_turn_node(state: ParentState) -> dict:
+    """Clean the information that should not be past """
+    return {
+        "messages": [RemoveMessage(id=REMOVE_ALL_MESSAGES)],
+        "analyst_reports": [RESET],      # обрабатывается reports_reducer
+        "subtopics": [],
+        "user_approved": True,
+        "final_report": "",
+    }
+
+def analyst_finish(state: AnalystState) -> dict:
+    last = state["messages"][-1]
+    # если упёрлись в лимит шагов, а модель всё ещё просит тулы, просим итог без тулов
+    if getattr(last, "tool_calls", None):
+        last = llm_reasonings.invoke(
+            state["messages"][:-1] + [HumanMessage(content="Write the final report now, without using more tools.")]
+        )
+    return {"report": last.content}
+
+analyst_builder = StateGraph(AnalystState)
+analyst_builder.add_node("analyst_agent", analyst_agent)
+analyst_builder.add_node("analyst_tools", tool_node_all)
+analyst_builder.add_node("analyst_finish", analyst_finish)
+analyst_builder.add_edge(START, "analyst_agent")
+analyst_builder.add_conditional_edges(
+    "analyst_agent", route_after_analyst_agent,
+    {"analyst_tools": "analyst_tools", "analyst_finish": "analyst_finish"},
+)
+analyst_builder.add_edge("analyst_tools", "analyst_agent")
+analyst_builder.add_edge("analyst_finish", END)
+analyst_graph = analyst_builder.compile()
+
+
+def analyst_node(state: AnalystState) -> dict:
+    out = analyst_graph.invoke(state)
+    return {"analyst_reports": [out["report"]]}
+
+
+builder = StateGraph(ParentState)
+
+builder.add_node("reset_turn_node", reset_turn_node)
+builder.add_node("filter_input_node", filter_input_node)
+
+# fast track
+builder.add_node("fast_track_node", fast_track_node)
+builder.add_node("tool_node_fast", tool_node_fast)
+builder.add_node("extract_final_answer_node", extract_final_answer_node)
+
+# deep research
+builder.add_node("generate_subtopics_node", generate_subtopics_node)
+builder.add_node("human_review_node", human_review_node)
+builder.add_node("analyst_node", analyst_node)
+builder.add_node("final_summary_node", final_summary_node)
+
+# история
+builder.add_node("update_history_node", update_history_node)
+
+# --- рёбра ---
+builder.add_edge(START, "reset_turn_node")
+builder.add_edge("reset_turn_node", "filter_input_node")
+
+builder.add_conditional_edges(
+    "filter_input_node", route_after_filter,
+    {"fast_track_node": "fast_track_node",
+     "generate_subtopics_node": "generate_subtopics_node"},
+)
+
+# fast track: цикл с инструментами
+builder.add_conditional_edges(
+    "fast_track_node", route_after_fast_track,
+    {"tool_node_fast": "tool_node_fast",
+     "extract_final_answer_node": "extract_final_answer_node"},
+)
+builder.add_edge("tool_node_fast", "fast_track_node")
+builder.add_edge("extract_final_answer_node", "update_history_node")
+
+# deep research: подтемы -> пауза -> (заново | параллельные аналитики)
+builder.add_edge("generate_subtopics_node", "human_review_node")
+builder.add_conditional_edges(
+    "human_review_node", route_after_subtopics,
+    ["generate_subtopics_node", "analyst_node"],   # Send-роутер: перечисляем возможные цели списком
+)
+builder.add_edge("analyst_node", "final_summary_node")
+builder.add_edge("final_summary_node", "update_history_node")
+
+builder.add_edge("update_history_node", END)
+
+graph = builder.compile(checkpointer=MemorySaver())

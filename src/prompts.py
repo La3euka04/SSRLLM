@@ -83,3 +83,29 @@ INSTRUCTIONS:
 4. Adapt the final output to a {manner} manner.
 5. Deliver the final response in the same language as the original user request.
 """
+
+
+HISTORY_SUMMARY_PROMPT_1 = """Create a high-density, comprehensive summary of the following raw history context: {history}
+
+### Execution Guidelines
+* Fact Retention: Do NOT omit names, dates, key events, or cause-and-effect relationships for the sake of brevity. Every factual data point must be preserved.
+* Structure: Present the information using a logically or chronologically organized bulleted list. 
+* Tone & Style: Informative, concise, and dense. Eliminate fluff, filler words, and introductory remarks. Focus strictly on information delivery."""
+
+HISTORY_SUMMARY_SUMMARY_PROMPT_1 = """Consolidate and structure the following archive of previous summaries into a single, chronological master document: {history_summary}
+
+### Execution Guidelines
+* De-duplication: Identify and merge overlapping or repeating facts from different summaries into single, cohesive points.
+* Information Depth: Do not compress the text by discarding data. Your goal is to organize and unify the information, not to shorten its substance.
+* Continuity: Ensure seamless logical transitions between older and newer timeline events so the final output reads as one continuous record."""
+
+HISTORY_SUMMARY_PROMPT_2 = """
+Perform a deep information synthesis. Integrate the new history context: {history} with the existing archive of previous summaries: {history_summary} into a single, up-to-date master reference.
+
+### Execution Guidelines
+* Seamless Integration: Slot the new facts from {history} into their correct chronological or thematic positions within the existing {history_summary} structure.
+* High Density: Avoid vague generalizations (e.g., do not use phrases like "and other events"). If a specific fact exists in either source, it must explicitly appear in the final output.
+* Conflict Resolution: If the new history context conflicts with previous summaries, prioritize the information in the new context ({history})."""
+
+MAX_TOOL_STEPS_FAST = 4
+MAX_TOOL_STEPS_LONG = 7
