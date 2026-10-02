@@ -1,5 +1,3 @@
-# TODO ASYNC...
-import operator
 from typing import Annotated, List
 from typing_extensions import TypedDict
 from langchain_core.messages import BaseMessage

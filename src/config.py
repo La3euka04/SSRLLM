@@ -4,12 +4,14 @@ import os
 root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 sys.path.append(root_dir)
 from langchain_openai import ChatOpenAI
-from langchain_anthropic import ChatAnthropic
-from langchain.chat_models import init_chat_model
-from langgraph.graph import StateGraph
 from src.settings import settings
 from langchain_openai import OpenAIEmbeddings
+import os
+from dotenv import load_dotenv
 
+load_dotenv()
+
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 # Получение API-ключа из настроек
 api_key = settings.PROXY_API_KEY
 embeddings =  OpenAIEmbeddings(

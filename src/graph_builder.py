@@ -22,12 +22,38 @@ from states import ParentState, AnalystState, RESET
 from config import (llm_for_start, llm_topics_human_in_the_loop,
                     llm_reasonings, llm_answers_final_response)
 
+import sqlite3
+from pathlib import Path
+# from langgraph.checkpoint.sqlite import SqliteSaver
+from pathlib import Path
+from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 
 
 tools_all = [multiply, sum_, divide, web_search, search_wikipedia, search_scientific_papers, fetch_web_page_content, search_through_users_pdf]
 tools_fast = [multiply, sum_, divide, web_search, search_through_users_pdf]  # обычные функции с @tool или просто callable
 tool_node_fast = ToolNode(tools_fast)
 tool_node_all = ToolNode(tools_all)
+
+# DB_DIR = Path(r"C:/Projects/LLM_AGENTS_COURSE/src/SPWS/src/db")
+
+
+DB_PATH = Path(__file__).resolve().parent.parent / "DB" / "checkpoints.sqlite"
+DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+_checkpointer_cm = AsyncSqliteSaver.from_conn_string(str(DB_PATH))
+checkpointer = None
+graph = None
+
+
+async def init_graph():
+    global checkpointer, graph
+    checkpointer = await _checkpointer_cm.__aenter__()
+    graph = builder.compile(checkpointer=checkpointer)
+    return graph
+
+
+async def close_graph():
+    await _checkpointer_cm.__aexit__(None, None, None)
 
 
 
@@ -52,14 +78,12 @@ def build_history_context(state: ParentState) -> str:
     return "\n\n".join(parts) if parts else "No history context"
 
 
-
-
 def filter_input_node(state: ParentState) -> dict:
-    """Evaluate the complexity of the question via FIRST_FILTER_PROMPT."""
+    """Evaluate the complexity of the question via FIRST_FILTER_PROMPT"""
 
     first_analyser_prompt_text = FIRST_FILTER_PROMPT.format(
     topic=state["topic"],
-    history=state.get("history", ""),
+    history=build_history_context(state),
     is_pdf=state["is_pdf"],
     )
 
@@ -74,7 +98,7 @@ def filter_input_node(state: ParentState) -> dict:
 
 
 def route_after_filter(state: ParentState) -> Literal["fast_track_node", "generate_subtopics_node"]:
-    """fork path for add_conditional_edges."""
+    """Fork path for add_conditional_edges"""
     print(state["reasoning"])
     if state["pathway"] == "FAST_TRACK":
         return "fast_track_node"
@@ -83,10 +107,10 @@ def route_after_filter(state: ParentState) -> Literal["fast_track_node", "genera
 
 def fast_track_node(state: ParentState) -> dict:
     """Create a fast answer with the limited number of tools"""
-    if not state.get('messages'):# ЗАЧЕМ ТАК И ПОЧЕМУ тАК ВОЗВРАЩАЕМ ОТВЕТ
+    if not state.get('messages'):
         prompt_text = FAST_ANSWER_PROMPT.format(
             manner=state.get("format_style", "Normal"),
-            history=state.get("history", ""),
+            history=build_history_context(state),
             question=state.get("question", ""),
             topic=state.get("topic", ""),
             is_pdf=state["is_pdf"],
@@ -94,7 +118,7 @@ def fast_track_node(state: ParentState) -> dict:
         seed = [SystemMessage(content=prompt_text), HumanMessage(content=state["question"])]
         llm_with_tools = llm_for_start.bind_tools(tools_fast)
         result = llm_with_tools.invoke(seed)
-        return {"final_report": seed + [result]}
+        return {"messages": seed + [result]}
     else:
         llm_with_tools = llm_for_start.bind_tools(tools_fast)
         result = llm_with_tools.invoke(state['messages'])
@@ -111,8 +135,9 @@ def route_after_fast_track(state: ParentState) -> Literal["tool_node_fast", "ext
 
 
 def extract_final_answer_node(state: ParentState) -> dict:
+    """Gives the final report avoiding tool calling"""
     last = state["messages"][-1]
-    if getattr(last, "tool_calls", None):   # упёрлись в лимит, а модель всё ещё просит тул
+    if getattr(last, "tool_calls", None): 
         last = llm_for_start.invoke(
             state["messages"][:-1] + [HumanMessage(content="Give the final answer now, without using more tools")]
         )
@@ -136,7 +161,7 @@ def generate_subtopics_node(state: ParentState) -> dict:
 def human_review_node(state: ParentState) -> dict:
     """Stops the graph and wait for cheking from the user"""
     decision = interrupt({
-        "message": "Подтвердите или отредактируйте список подтем для анализа",
+        "message": "Approve or change the subtopics for analysis:",
         "subtopics": state["subtopics"],
     })
     return {
@@ -194,9 +219,10 @@ def final_summary_node(state: ParentState) -> dict:
 
 
 def update_history_node(state: ParentState) -> dict:
+    """Custom history summary"""
     new_turn = f"Q: {state['question']}\nA: {state['final_report']}"
     history = state.get("history", []) + [new_turn]
-    history_summary = list(state.get("history_summary", []))   # (1)
+    history_summary = list(state.get("history_summary", []))   
     turn_count = state.get("turn_count", 0) + 1
     turn_summary_count = state.get("turn_summary_count", 0) + 1
 
@@ -223,7 +249,7 @@ def update_history_node(state: ParentState) -> dict:
 
         else:
             summary_prompt = HISTORY_SUMMARY_PROMPT_2.format(
-                previous_summary="\n\n".join(history_summary) or "(not yet)",   # (5)
+                previous_summary="\n\n".join(history_summary) or "(not yet)",   
                 recent_turns="\n\n".join(history),
             )
             summary_result = llm_for_start.invoke([SystemMessage(content=summary_prompt)])
@@ -246,20 +272,25 @@ def reset_turn_node(state: ParentState) -> dict:
     """Clean the information that should not be past """
     return {
         "messages": [RemoveMessage(id=REMOVE_ALL_MESSAGES)],
-        "analyst_reports": [RESET],      # обрабатывается reports_reducer
+        "analyst_reports": [RESET],      
         "subtopics": [],
         "user_approved": True,
         "final_report": "",
     }
 
 def analyst_finish(state: AnalystState) -> dict:
+    """Gives the final report avoiding tool calling"""
     last = state["messages"][-1]
-    # если упёрлись в лимит шагов, а модель всё ещё просит тулы, просим итог без тулов
     if getattr(last, "tool_calls", None):
         last = llm_reasonings.invoke(
             state["messages"][:-1] + [HumanMessage(content="Write the final report now, without using more tools.")]
         )
     return {"report": last.content}
+
+#-----------------------------------#
+#-------GRAPH BUILDER---------------#
+#-----------------------------------#
+
 
 analyst_builder = StateGraph(AnalystState)
 analyst_builder.add_node("analyst_agent", analyst_agent)
@@ -296,10 +327,9 @@ builder.add_node("human_review_node", human_review_node)
 builder.add_node("analyst_node", analyst_node)
 builder.add_node("final_summary_node", final_summary_node)
 
-# история
 builder.add_node("update_history_node", update_history_node)
 
-# --- рёбра ---
+
 builder.add_edge(START, "reset_turn_node")
 builder.add_edge("reset_turn_node", "filter_input_node")
 
@@ -309,7 +339,7 @@ builder.add_conditional_edges(
      "generate_subtopics_node": "generate_subtopics_node"},
 )
 
-# fast track: цикл с инструментами
+
 builder.add_conditional_edges(
     "fast_track_node", route_after_fast_track,
     {"tool_node_fast": "tool_node_fast",
@@ -318,7 +348,7 @@ builder.add_conditional_edges(
 builder.add_edge("tool_node_fast", "fast_track_node")
 builder.add_edge("extract_final_answer_node", "update_history_node")
 
-# deep research: подтемы -> пауза -> (заново | параллельные аналитики)
+
 builder.add_edge("generate_subtopics_node", "human_review_node")
 builder.add_conditional_edges(
     "human_review_node", route_after_subtopics,
@@ -329,4 +359,3 @@ builder.add_edge("final_summary_node", "update_history_node")
 
 builder.add_edge("update_history_node", END)
 
-graph = builder.compile(checkpointer=MemorySaver())

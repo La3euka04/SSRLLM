@@ -7,27 +7,22 @@ You have TWO pathways to choose from:
 2. "DEEP_RESEARCH": Use this if the question is complex, multi-layered, tough, divisive, or requires a comprehensive analysis across multiple subtopics.
 
 You must respond STRICLY in JSON format with the following keys:
-{
+{{
     "reasoning": "A brief explanation of why you chose this path",
     "pathway": "FAST_TRACK" or "DEEP_RESEARCH",
-}
+}}
  
 The user uploaded pdf to use -> "{is_pdf}".
 Also this is the history of the user's questions and answers - "{history}".
 End of history
 You must respond STRICLY in JSON format with the following keys:
-{
+{{
     "reasoning": "A brief explanation of why you chose this path",
     "pathway": "FAST_TRACK" or "DEEP_RESEARCH",
-}
+}}
 Here is the question and the topic:
 """
-ADDITIONAL_PROMPT = """You must respond STRICLY in JSON format with the following keys:
-{
-    "reasoning": "A brief explanation of why you chose this path",
-    "pathway": "FAST_TRACK" or "DEEP_RESEARCH",
-}
-"""
+
 FAST_ANSWER_PROMPT = """You are a diligent and precise AI Assistant. 
 Your task is to answer the user's question:
 
@@ -40,7 +35,30 @@ Also this is the history of the user's questions and answers - "{history}".
 Here is the question: "{question}" and the topic "{topic}". 
 The user uploaded pdf to use -> "{is_pdf}".
 End of history. Answer NOW:
+"""
 
+ADDITIONAL_PROMPT = """You must respond STRICLY in JSON format with the following keys:
+{{
+    "reasoning": "A brief explanation of why you chose this path",
+    "pathway": "FAST_TRACK" or "DEEP_RESEARCH",
+}}
+"""
+FINAL_SUMMARY_PROMPT = """You are a Lead Editor. Your task is to synthesize a comprehensive, cohesive, and seamless final report based on the research contexts gathered by your analytical team.
+
+RESEARCH CONTEXT:
+{reports}
+
+QUESTION:
+{question}
+
+TOPIC:
+{topic}
+
+INSTRUCTIONS:
+1. Merge the provided information into a single monolithic document. Eliminate any logical overlaps or repetitive data.
+2. Create smooth transitions between sections and structure the report using Markdown (headers, bullet points, bold key figures).
+3. Do not invent or hallucinate any facts. Rely strictly on the provided research context.
+4. Deliver the final response in the same language as the original user request.
 """
 
 GENERATE_TOPICS_PROMPT = """You are a Strategic Research Architect. 
@@ -49,9 +67,9 @@ Your task is to analyze the user's question: "{question}" and break it down into
 Each subtopic must focus on a specific angle of the main question so that different research analysts can work on them concurrently without duplicating efforts.
 
 You MUST respond strictly in JSON format with the following structure:
-{
+{{
     "subtopics": ["Subtopic 1", "Subtopic 2", "Subtopic 3"]
-}
+}}
 Do not include any conversational filler, markdown formatting, or thoughts outside the JSON object.
 """
 
@@ -68,31 +86,17 @@ OPERATIONAL LOGIC:
 Is PDF available - "{is_pdf}"?
 """
 
-FINAL_SUMMARY_PROMPT = """You are a Lead Editor. Your task is to synthesize a comprehensive, cohesive, and seamless final report based on the research contexts gathered by your analytical team.
-
-RESEARCH CONTEXT:
-{context}
-
-QUESTION:
-{qustion}
-
-INSTRUCTIONS:
-1. Merge the provided information into a single monolithic document. Eliminate any logical overlaps or repetitive data.
-2. Create smooth transitions between sections and structure the report beautifully using Markdown (headers, bullet points, bold key figures).
-3. Do not invent or hallucinate any facts. Rely strictly on the provided research context.
-4. Adapt the final output to a {manner} manner.
-5. Deliver the final response in the same language as the original user request.
-"""
 
 
-HISTORY_SUMMARY_PROMPT_1 = """Create a high-density, comprehensive summary of the following raw history context: {history}
+
+HISTORY_SUMMARY_PROMPT_1 = """Create a high-density, comprehensive summary of the following raw history context: {recent_turns}
 
 ### Execution Guidelines
 * Fact Retention: Do NOT omit names, dates, key events, or cause-and-effect relationships for the sake of brevity. Every factual data point must be preserved.
 * Structure: Present the information using a logically or chronologically organized bulleted list. 
 * Tone & Style: Informative, concise, and dense. Eliminate fluff, filler words, and introductory remarks. Focus strictly on information delivery."""
 
-HISTORY_SUMMARY_SUMMARY_PROMPT_1 = """Consolidate and structure the following archive of previous summaries into a single, chronological master document: {history_summary}
+HISTORY_SUMMARY_SUMMARY_PROMPT_1 = """Consolidate and structure the following archive of previous summaries into a single, chronological master document: {previous_summaries}
 
 ### Execution Guidelines
 * De-duplication: Identify and merge overlapping or repeating facts from different summaries into single, cohesive points.
@@ -100,12 +104,13 @@ HISTORY_SUMMARY_SUMMARY_PROMPT_1 = """Consolidate and structure the following ar
 * Continuity: Ensure seamless logical transitions between older and newer timeline events so the final output reads as one continuous record."""
 
 HISTORY_SUMMARY_PROMPT_2 = """
-Perform a deep information synthesis. Integrate the new history context: {history} with the existing archive of previous summaries: {history_summary} into a single, up-to-date master reference.
+Perform a deep information synthesis. Integrate the new history context: {recent_turns} with the existing archive of previous summaries: {previous_summary} into a single, up-to-date master reference.
 
 ### Execution Guidelines
-* Seamless Integration: Slot the new facts from {history} into their correct chronological or thematic positions within the existing {history_summary} structure.
+* Seamless Integration: Slot the new facts from {recent_turns} into their correct chronological or thematic positions within the existing {previous_summary} structure.
 * High Density: Avoid vague generalizations (e.g., do not use phrases like "and other events"). If a specific fact exists in either source, it must explicitly appear in the final output.
-* Conflict Resolution: If the new history context conflicts with previous summaries, prioritize the information in the new context ({history})."""
+* Conflict Resolution: If the new history context conflicts with previous summaries, prioritize the information in the new context ({recent_turns})."""
 
 MAX_TOOL_STEPS_FAST = 4
 MAX_TOOL_STEPS_LONG = 7
+MAX_TOOL_STEPS = 5

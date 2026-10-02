@@ -11,6 +11,8 @@ sys.path.append(root_dir)
 from src.settings import settings
 from langchain_core.tools import tool
 from config import embeddings
+from typing import Annotated
+from langgraph.prebuilt import InjectedState
 
 
 if not os.environ.get("TAVILY_API_KEY"):
@@ -90,21 +92,19 @@ def fetch_web_page_content(url: str) -> str:
 
 
 @tool
-def search_through_users_pdf(question: str) -> str:
-    """Retrieve information from users chunked pdf. Returns 10 chunks"""
-
+def search_through_users_pdf(
+    question: str,
+    user_id: Annotated[str, InjectedState("user_id")],
+) -> str:
+    """Retrieve information from the user's chunked pdf. Returns up to 10 chunks."""
     vectorstore = Chroma(
-        persist_directory="./chroma_db",     # путь к уже существующей папке с данными
-        embedding_function=embeddings         # обрати внимание — параметр называется embedding_function, а не embedding!
+        persist_directory="./chroma_db",
+        embedding_function=embeddings,
+        collection_name=f"user_collection_{user_id}",
     )
     retriever = vectorstore.as_retriever(
         search_type="mmr",
-        search_kwargs={
-            "k": 10,           # Сколько чанков вернуть в итоге
-            "fetch_k": 20,     # Из какого количества кандидатов выбирать (чем больше, тем выше разнообразие)
-            "lambda_mult": 0.67 # От 0 до 1. Ближе к 0 — максимальная случайность/разнообразие, ближе к 1 — строгая схожесть.
-        }
+        search_kwargs={"k": 10, "fetch_k": 20, "lambda_mult": 0.67},
     )
     relevant_chunks = retriever.invoke(question)
-    context_text = "\n\n".join([doc.page_content for doc in relevant_chunks])
-    return context_text
+    return "\n\n".join(doc.page_content for doc in relevant_chunks)

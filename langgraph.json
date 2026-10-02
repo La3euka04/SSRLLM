@@ -1,0 +1,10 @@
+{
+  "dependencies": ["."],
+  "graphs": {
+    "agent": "./src/main.py:app",
+    "simple_graph": "./src/tasks.py:graph", 
+    "multiply_numbers": "./src/llm/task_2_correct.py:graph",
+    "reasoning": "./src/Agent_researcher/researcher.py:graph"
+  },
+  "env": ".env"
+}
