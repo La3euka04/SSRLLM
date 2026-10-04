@@ -8,9 +8,9 @@ import requests
 from bs4 import BeautifulSoup
 root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 sys.path.append(root_dir)
-from src.settings import settings
+from settings import settings
 from langchain_core.tools import tool
-from config import embeddings
+from .config import embeddings
 from typing import Annotated
 from langgraph.prebuilt import InjectedState
 
@@ -82,7 +82,6 @@ def fetch_web_page_content(url: str) -> str:
     try:
         response = requests.get(url, timeout=10, headers={"User-Agent": "Mozilla/5.0"})
         soup = BeautifulSoup(response.text, "html.parser")
-        # Удаляем скрипты и стили
         for script in soup(["script", "style"]):
             script.extract()
         text = soup.get_text(separator="\n")
@@ -98,7 +97,7 @@ def search_through_users_pdf(
 ) -> str:
     """Retrieve information from the user's chunked pdf. Returns up to 10 chunks."""
     vectorstore = Chroma(
-        persist_directory="./chroma_db",
+        persist_directory="C:/Projects/LLM_AGENTS_COURSE/src/SPWS/src/DB/chroma_db",
         embedding_function=embeddings,
         collection_name=f"user_collection_{user_id}",
     )

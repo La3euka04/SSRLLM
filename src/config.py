@@ -1,10 +1,12 @@
 import sys
 import os
 
-root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.append(root_dir)
 from langchain_openai import ChatOpenAI
-from src.settings import settings
+# from langchain_anthropic import ChatAnthropic
+from langchain.chat_models import init_chat_model
+from settings import settings
 from langchain_openai import OpenAIEmbeddings
 import os
 from dotenv import load_dotenv
@@ -27,18 +29,18 @@ llm_for_start = ChatOpenAI(
 )
 
 llm_topics_human_in_the_loop = ChatOpenAI(
-    model='gpt-5.5',  # Указываем модель
-    base_url='https://api.proxyapi.ru/openai/v1',  # URL для доступа к OpenAI через Proxy API
-    temperature=0,  # Параметр температуры для генерации текста
+    model='gpt-4o',  # Указываем модель
+    base_url='https://api.proxyapi.ru/openai/v1',  # URL для доступа к OpenAI через Proxy API  # Параметр температуры для генерации текста
     api_key=api_key  # Ваш API-ключ
 )
 
-llm_reasonings = ChatOpenAI(
-    model='claude-3-opus',  # Указываем модель
-    base_url='https://api.proxyapi.ru/openai/v1',  # URL для доступа к OpenAI через Proxy API
-    temperature=0.1,  # Параметр температуры для генерации текста
-    api_key=api_key  # Ваш API-ключ
+llm_reasonings = init_chat_model(
+    model='qwen/qwen3.8-omni-flash',
+    base_url='https://api.proxyapi.ru/openrouter/v1',
+    api_key=api_key,
+    model_provider='openai',
 )
+
 
 llm_answers_final_response = ChatOpenAI(
     model='gpt-4o',  # Указываем модель

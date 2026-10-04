@@ -3,14 +3,30 @@ import os
 root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 sys.path.append(root_dir)
 from langchain_pymupdf4llm import PyMuPDF4LLMLoader
-from src.settings import settings
+from settings import settings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_chroma import Chroma
-from config import embeddings
-
+from .config import embeddings
+import chromadb
 
 api_key = settings.PROXY_API_KEY
-CHROMA_PERSIST_DIR = "./DB/chroma_db"
+CHROMA_PERSIST_DIR = "C:/Projects/LLM_AGENTS_COURSE/src/SPWS/src/DB/chroma_db"
+
+
+
+def _col(uid): return f"user_collection_{uid}"
+
+def user_has_pdf(user_id: str) -> bool:
+    try:
+        return chromadb.PersistentClient(path=CHROMA_PERSIST_DIR).get_collection(_col(user_id)).count() > 0
+    except Exception:
+        return False
+
+def delete_user_pdf(user_id: str) -> None:
+    try:
+        chromadb.PersistentClient(path=CHROMA_PERSIST_DIR).delete_collection(_col(user_id))
+    except Exception:
+        pass
 
 def create_vectore_db_for_user(file_path: str, user_id: str):
     loader = PyMuPDF4LLMLoader(
@@ -34,7 +50,7 @@ def create_vectore_db_for_user(file_path: str, user_id: str):
         collection_name=collection_name
     )
     
-    if os.path.exists(file_path):
-        os.remove(file_path)
+    # if os.path.exists(file_path):
+    #     os.remove(file_path)
 
     print(f" DB for user {user_id} was created at {CHROMA_PERSIST_DIR}")

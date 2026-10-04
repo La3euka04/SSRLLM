@@ -8,31 +8,27 @@ from pydantic import BaseModel
 
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import REMOVE_ALL_MESSAGES
-from langgraph.types import Send, interrupt, Command
+from langgraph.types import Send, interrupt
 from langgraph.prebuilt import ToolNode
-from langgraph.checkpoint.memory import MemorySaver
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage, RemoveMessage
 
-from tools import (multiply, sum_, divide, web_search, search_wikipedia,
+from .tools import (multiply, sum_, divide, web_search, search_wikipedia,
                    search_scientific_papers, fetch_web_page_content, search_through_users_pdf)
-from prompts import (FIRST_FILTER_PROMPT, ADDITIONAL_PROMPT, FAST_ANSWER_PROMPT,
+from .prompts import (FIRST_FILTER_PROMPT, DIRECT_ANSWER_PROMPT, ADDITIONAL_PROMPT, FAST_ANSWER_PROMPT,
                      GENERATE_TOPICS_PROMPT, RESEARCH_TOPICS_PROMPT, FINAL_SUMMARY_PROMPT,
                      HISTORY_SUMMARY_PROMPT_1, HISTORY_SUMMARY_SUMMARY_PROMPT_1, HISTORY_SUMMARY_PROMPT_2, MAX_TOOL_STEPS_FAST, MAX_TOOL_STEPS)
-from states import ParentState, AnalystState, RESET
-from config import (llm_for_start, llm_topics_human_in_the_loop,
+from .states import ParentState, AnalystState, RESET
+from .config import (llm_for_start, llm_topics_human_in_the_loop,
                     llm_reasonings, llm_answers_final_response)
-
-import sqlite3
-from pathlib import Path
-# from langgraph.checkpoint.sqlite import SqliteSaver
 from pathlib import Path
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
+from pydantic import BaseModel, Field
 
 
 tools_all = [multiply, sum_, divide, web_search, search_wikipedia, search_scientific_papers, fetch_web_page_content, search_through_users_pdf]
 tools_fast = [multiply, sum_, divide, web_search, search_through_users_pdf]  # обычные функции с @tool или просто callable
-tool_node_fast = ToolNode(tools_fast)
-tool_node_all = ToolNode(tools_all)
+tool_node_fast = ToolNode(tools_fast, handle_tool_errors=True)
+tool_node_all = ToolNode(tools_all, handle_tool_errors=True)
 
 # DB_DIR = Path(r"C:/Projects/LLM_AGENTS_COURSE/src/SPWS/src/db")
 
@@ -58,14 +54,15 @@ async def close_graph():
 
 
 class InputFilterResponse(BaseModel):
-    """The scheme for the model-filter's output"""
-    reasoning: str 
-    pathway: Literal["FAST_TRACK", "DEEP_RESEARCH"]
+    reasoning: str
+    pathway: Literal["DIRECT", "FAST_TRACK", "DEEP_RESEARCH"]
 
 
 class SubtopicsClass(BaseModel):
-    """The scheme for the subtopics model"""
-    subtopics: List[str]
+    """Short titles of research subtopics."""
+    subtopics: List[str] = Field(
+        description="3-5 short titles, 2-7 words each, no explanations"
+    )
 
 
 def build_history_context(state: ParentState) -> str:
@@ -81,6 +78,9 @@ def build_history_context(state: ParentState) -> str:
 def filter_input_node(state: ParentState) -> dict:
     """Evaluate the complexity of the question via FIRST_FILTER_PROMPT"""
 
+    if state.get("force_deep") and state.get("deep_allowed", True):
+        return {"reasoning": "Deep research requested by the user", "pathway": "DEEP_RESEARCH", "limit_hit": False}
+
     first_analyser_prompt_text = FIRST_FILTER_PROMPT.format(
     topic=state["topic"],
     history=build_history_context(state),
@@ -94,15 +94,31 @@ def filter_input_node(state: ParentState) -> dict:
         SystemMessage(content=ADDITIONAL_PROMPT)
         ])
 
-    return {"reasoning": verdict.reasoning, "pathway": verdict.pathway}
+    mode = state.get("mode", "auto")
+    pathway, limit_hit = verdict.pathway, False
+    if mode == "deep" and pathway == "FAST_TRACK":
+        pathway = "DEEP_RESEARCH"
+    if pathway == "DEEP_RESEARCH":
+        if mode == "fast":
+            pathway = "FAST_TRACK"
+        elif not state.get("deep_allowed", True):
+            pathway, limit_hit = "FAST_TRACK", True
+    return {"reasoning": verdict.reasoning, "pathway": pathway, "limit_hit": limit_hit}
 
 
-def route_after_filter(state: ParentState) -> Literal["fast_track_node", "generate_subtopics_node"]:
-    """Fork path for add_conditional_edges"""
-    print(state["reasoning"])
-    if state["pathway"] == "FAST_TRACK":
-        return "fast_track_node"
-    return "generate_subtopics_node"
+def route_after_filter(state: ParentState) -> Literal["direct_answer_node", "fast_track_node", "generate_subtopics_node"]:
+    return {
+        "DIRECT": "direct_answer_node",
+        "FAST_TRACK": "fast_track_node",
+    }.get(state["pathway"], "generate_subtopics_node")
+
+
+
+def direct_answer_node(state: ParentState) -> dict:
+    """Answers imidiently without tools"""
+    prompt = DIRECT_ANSWER_PROMPT.format(history=build_history_context(state))
+    result = llm_for_start.invoke([SystemMessage(content=prompt), HumanMessage(content=state["question"])])
+    return {"final_report": result.content}
 
 
 def fast_track_node(state: ParentState) -> dict:
@@ -112,7 +128,6 @@ def fast_track_node(state: ParentState) -> dict:
             manner=state.get("format_style", "Normal"),
             history=build_history_context(state),
             question=state.get("question", ""),
-            topic=state.get("topic", ""),
             is_pdf=state["is_pdf"],
         )
         seed = [SystemMessage(content=prompt_text), HumanMessage(content=state["question"])]
@@ -154,8 +169,8 @@ def generate_subtopics_node(state: ParentState) -> dict:
     )
     llm_analyser = llm_topics_human_in_the_loop.with_structured_output(SubtopicsClass)
     verdict = llm_analyser.invoke([SystemMessage(content=topics_prompt_text)])
-
-    return {"subtopics": verdict.subtopics}
+    subtopics = [s.strip()[:80] for s in verdict.subtopics[:5]]
+    return {"subtopics": subtopics}
 
 
 def human_review_node(state: ParentState) -> dict:
@@ -191,7 +206,6 @@ def analyst_agent(state: AnalystState):
     llm = llm_reasonings.bind_tools(tools_all)
     if not state.get('messages'):
         research_prompt_text = RESEARCH_TOPICS_PROMPT.format(
-                        question=state["question"],
                         topic=state["subtopic"],
                         is_pdf=state["is_pdf"],
                 )
@@ -226,8 +240,8 @@ def update_history_node(state: ParentState) -> dict:
     turn_count = state.get("turn_count", 0) + 1
     turn_summary_count = state.get("turn_summary_count", 0) + 1
 
-    if turn_count % 7 == 0:
-        if turn_summary_count % 6 == 0:
+    if turn_count % 4 == 0:
+        if turn_summary_count % 3 == 0:
 
             summary_prompt = HISTORY_SUMMARY_PROMPT_1.format(
                 recent_turns="\n\n".join(history),
@@ -249,7 +263,7 @@ def update_history_node(state: ParentState) -> dict:
 
         else:
             summary_prompt = HISTORY_SUMMARY_PROMPT_2.format(
-                previous_summary="\n\n".join(history_summary) or "(not yet)",   
+                previous_summary="\n\n".join(history_summary[-1]) or "(not yet)",   
                 recent_turns="\n\n".join(history),
             )
             summary_result = llm_for_start.invoke([SystemMessage(content=summary_prompt)])
@@ -326,7 +340,7 @@ builder.add_node("generate_subtopics_node", generate_subtopics_node)
 builder.add_node("human_review_node", human_review_node)
 builder.add_node("analyst_node", analyst_node)
 builder.add_node("final_summary_node", final_summary_node)
-
+builder.add_node("direct_answer_node", direct_answer_node)
 builder.add_node("update_history_node", update_history_node)
 
 
@@ -335,9 +349,11 @@ builder.add_edge("reset_turn_node", "filter_input_node")
 
 builder.add_conditional_edges(
     "filter_input_node", route_after_filter,
-    {"fast_track_node": "fast_track_node",
+    {"direct_answer_node": "direct_answer_node",
+     "fast_track_node": "fast_track_node",
      "generate_subtopics_node": "generate_subtopics_node"},
 )
+builder.add_edge("direct_answer_node", "update_history_node")
 
 
 builder.add_conditional_edges(

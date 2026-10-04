@@ -26,7 +26,11 @@ class ParentState(TypedDict):
     history: List[str]
     history_summary: List[str]
     turn_count: int
-    turn_summary_count: int          # <-- добавить
+    turn_summary_count: int     
+    deep_allowed: bool
+    limit_hit: bool
+    force_deep: bool
+    mode: str
 
 class AnalystState(TypedDict):
     subtopic: str

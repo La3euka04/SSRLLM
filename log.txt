@@ -1,0 +1,60 @@
+INFO:__main__:Graph initialized
+INFO:aiogram.dispatcher:Start polling
+INFO:aiogram.dispatcher:Run polling for bot @SSRLMbot id=8903643868 - 'Smart Dummy Assistant'
+INFO:aiogram.event:Update id=319923786 is handled. Duration 195 ms by bot id=8903643868
+INFO:aiogram.event:Update id=319923787 is handled. Duration 57 ms by bot id=8903643868
+INFO:aiogram.event:Update id=319923788 is handled. Duration 290 ms by bot id=8903643868
+INFO:aiogram.event:Update id=319923789 is handled. Duration 70 ms by bot id=8903643868
+INFO:aiogram.event:Update id=319923790 is handled. Duration 83 ms by bot id=8903643868
+INFO:aiogram.event:Update id=319923791 is handled. Duration 69 ms by bot id=8903643868
+INFO:aiogram.event:Update id=319923792 is handled. Duration 86 ms by bot id=8903643868
+INFO:aiogram.event:Update id=319923793 is handled. Duration 107 ms by bot id=8903643868
+INFO:aiogram.event:Update id=319923794 is handled. Duration 208 ms by bot id=8903643868
+INFO:httpx2:HTTP Request: POST https://api.proxyapi.ru/openai/v1/chat/completions "HTTP/1.1 200 OK"
+INFO:httpx2:HTTP Request: POST https://api.proxyapi.ru/openai/v1/chat/completions "HTTP/1.1 200 OK"
+INFO:aiogram.event:Update id=319923795 is handled. Duration 4206 ms by bot id=8903643868
+INFO:httpx2:HTTP Request: POST https://api.proxyapi.ru/openai/v1/embeddings "HTTP/1.1 200 OK"
+INFO:aiogram.event:Update id=319923796 is handled. Duration 49018 ms by bot id=8903643868
+INFO:httpx2:HTTP Request: POST https://api.proxyapi.ru/openai/v1/chat/completions "HTTP/1.1 200 OK"
+INFO:httpx2:HTTP Request: POST https://api.proxyapi.ru/openai/v1/chat/completions "HTTP/1.1 200 OK"
+INFO:httpx2:HTTP Request: POST https://api.proxyapi.ru/openai/v1/embeddings "HTTP/1.1 200 OK"
+INFO:httpx2:HTTP Request: POST https://api.proxyapi.ru/openai/v1/chat/completions "HTTP/1.1 200 OK"
+INFO:aiogram.event:Update id=319923797 is handled. Duration 7515 ms by bot id=8903643868
+INFO:aiogram.event:Update id=319923798 is handled. Duration 82 ms by bot id=8903643868
+INFO:aiogram.dispatcher:Polling stopped
+ERROR:aiogram.dispatcher:Failed to fetch updates - TelegramNetworkError: HTTP Client says - ServerDisconnectedError: Server disconnected
+WARNING:aiogram.dispatcher:Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 8903643868)
+INFO:aiogram.dispatcher:Polling stopped for bot @SSRLMbot id=8903643868 - 'Smart Dummy Assistant'
+Number of chunks: 128
+ DB for user 738247271 was created at C:/Projects/LLM_AGENTS_COURSE/src/SPWS/src/DB/chroma_db
+Traceback (most recent call last):
+  File "C:\Soft_for_devs\Lib\asyncio\runners.py", line 128, in run
+    return self._loop.run_until_complete(task)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "C:\Soft_for_devs\Lib\asyncio\base_events.py", line 719, in run_until_complete
+    return future.result()
+           ~~~~~~~~~~~~~^^
+  File "C:\Projects\LLM_AGENTS_COURSE\src\SPWS\main.py", line 44, in main
+    await dp.start_polling(bot)
+  File "C:\Projects\LLM_AGENTS_COURSE\.venv\Lib\site-packages\aiogram\dispatcher\dispatcher.py", line 614, in start_polling
+    done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Soft_for_devs\Lib\asyncio\tasks.py", line 432, in wait
+    return await _wait(fs, timeout, return_when, loop)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Soft_for_devs\Lib\asyncio\tasks.py", line 521, in _wait
+    await waiter
+asyncio.exceptions.CancelledError
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Projects\LLM_AGENTS_COURSE\src\SPWS\main.py", line 51, in <module>
+    asyncio.run(main())
+    ~~~~~~~~~~~^^^^^^^^
+  File "C:\Soft_for_devs\Lib\asyncio\runners.py", line 205, in run
+    return runner.run(main)
+           ~~~~~~~~~~^^^^^^
+  File "C:\Soft_for_devs\Lib\asyncio\runners.py", line 133, in run
+    raise KeyboardInterrupt()
+KeyboardInterrupt
