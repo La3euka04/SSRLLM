@@ -103,6 +103,7 @@ async def answer_temp(m: Message, text: str, delay: float = 5, **kw) -> Message:
 # ── text helpers ──
 
 def md_to_html(t: str) -> str:
+    """"Convert Markdown into HTML for Telegram"""
     t = html.escape(t)
     t = re.sub(r"```(?:\w+)?\n?(.*?)```", r"<pre>\1</pre>", t, flags=re.S)
     t = re.sub(r"`([^`\n]+)`", r"<code>\1</code>", t)
@@ -112,6 +113,7 @@ def md_to_html(t: str) -> str:
 
 
 def split_text(t: str, limit: int = SPLIT_LIMIT) -> list[str]:
+    """Split for long messages"""
     parts = []
     while len(t) > limit:
         cut = t.rfind("\n\n", 0, limit)
@@ -201,10 +203,10 @@ async def drop_stale_menu(bot, chat_id: int, state: FSMContext):
 
 async def run_graph(m: Message, payload, uid: int, state: FSMContext, status: str | None = None) -> bool:
     status_msg, result = None, None
-    async with get_lock(uid):
+    async with get_lock(uid): # To work on one task for llm
         if status:
             status_msg = await m.answer(status)
-        await m.bot.send_chat_action(m.chat.id, ChatAction.TYPING)
+        await m.bot.send_chat_action(m.chat.id, ChatAction.TYPING) # For typing above
         try:
             result = await graph_builder.graph.ainvoke(payload, config=make_config(uid))
         except Exception:
