@@ -1,4 +1,4 @@
-# <Project name>: Research Assistant Telegram Bot (SSRLLM)
+# <Project name> Research Assistant Telegram Bot (SSRLLM)
 
 A Telegram bot with a built-in AI agent. It answers simple questions instantly
 and turns complex ones into structured research reports.
@@ -46,3 +46,8 @@ cp .env.example .env            # Windows: copy .env.example .env
 python main.py
 ```
 
+
+
+
+Как добавтиьь еще файлы в гиит игнор, как добавить фото демонстрацию 
+и как 
