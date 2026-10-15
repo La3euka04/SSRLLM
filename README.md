@@ -30,7 +30,7 @@ Telegram user ──> aiogram handlers (bot/) ──> LangGraph agent (src/)
 
 ## Quick start
 
-**Requirements:** Python <version>, a Telegram bot token from [@BotFather](https://t.me/BotFather),
+**Requirements:** Python 3.14, a Telegram bot token from [@BotFather](https://t.me/BotFather),
 API keys for [Proxyapi](https://proxyapi.ru/) and [tavily](https://www.tavily.com/).
 
 ```bash

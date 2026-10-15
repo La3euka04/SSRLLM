@@ -1,2 +1,6 @@
-src/DB/
+.env
+__pycache__/
+*.pyc
 DB/
+log.txt
+.venv/
