@@ -3,8 +3,6 @@
 A Telegram bot with a built-in AI agent. It answers simple questions instantly
 and turns complex ones into structured research reports.
 
-![demo](docs/demo.png)  <!-- screenshot or short GIF of the bot -->
-
 ## Features
 
 - **Fast answers** for simple questions
@@ -45,3 +43,8 @@ cp .env.example .env            # Windows: copy .env.example .env
 
 python main.py
 ```
+
+
+## Demo 
+
+![demo](docs/demo.png)  <!-- screenshot or short GIF of the bot -->
