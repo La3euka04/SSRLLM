@@ -6,7 +6,7 @@ sys.path.append(root_dir)
 from langchain_openai import ChatOpenAI
 # from langchain_anthropic import ChatAnthropic
 from langchain.chat_models import init_chat_model
-from settings import settings
+from .settings import settings
 from langchain_openai import OpenAIEmbeddings
 import os
 from dotenv import load_dotenv

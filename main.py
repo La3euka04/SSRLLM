@@ -1,3 +1,7 @@
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))  
 import asyncio
 import logging
 
@@ -7,7 +11,7 @@ from aiogram.enums import ParseMode
 from aiogram.types import BotCommand
 from langchain_core.globals import set_debug
 
-from settings import settings
+from src.settings import settings
 from src.graph_builder import init_graph, close_graph
 from bot.handlers import router
 # from src.logger_setup import setup_logging

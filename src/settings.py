@@ -1,10 +1,9 @@
 from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# Определяем путь к текущему файлу и директории
 current_file = Path(__file__).resolve()
 current_dir = current_file.parent
-env_path = current_dir / ".env"  # Путь к файлу .env
+env_path = current_dir / ".." / ".env"
 
 class Settings(BaseSettings):
     LANGSMITH_TRACING: str

@@ -3,7 +3,7 @@
 A Telegram bot with a built-in AI agent. It answers simple questions instantly
 and turns complex ones into structured research reports.
 
-![demo](docs/demo.gif)  <!-- screenshot or short GIF of the bot -->
+![demo](docs/demo.png)  <!-- screenshot or short GIF of the bot -->
 
 ## Features
 
@@ -31,7 +31,7 @@ Telegram user ──> aiogram handlers (bot/) ──> LangGraph agent (src/)
 ## Quick start
 
 **Requirements:** Python <version>, a Telegram bot token from [@BotFather](https://t.me/BotFather),
-API keys for <LLM provider> and <search provider>.
+API keys for [Proxyapi](https://proxyapi.ru/) and [tavily](https://www.tavily.com/).
 
 ```bash
 git clone https://github.com/La3euka04/SSRLLM.git
@@ -45,9 +45,3 @@ cp .env.example .env            # Windows: copy .env.example .env
 
 python main.py
 ```
-
-
-
-
-Как добавтиьь еще файлы в гиит игнор, как добавить фото демонстрацию 
-и как 

@@ -3,7 +3,7 @@ import os
 root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 sys.path.append(root_dir)
 from langchain_pymupdf4llm import PyMuPDF4LLMLoader
-from settings import settings
+from .settings import settings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_chroma import Chroma
 from .config import embeddings

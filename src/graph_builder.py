@@ -263,7 +263,7 @@ def update_history_node(state: ParentState) -> dict:
 
         else:
             summary_prompt = HISTORY_SUMMARY_PROMPT_2.format(
-                previous_summary="\n\n".join(history_summary[-1]) or "(not yet)",   
+                previous_summary="\n\n".join(history_summary[-1:]) or "(not yet)", 
                 recent_turns="\n\n".join(history),
             )
             summary_result = llm_for_start.invoke([SystemMessage(content=summary_prompt)])

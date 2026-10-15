@@ -8,7 +8,7 @@ import requests
 from bs4 import BeautifulSoup
 root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 sys.path.append(root_dir)
-from settings import settings
+from .settings import settings
 from langchain_core.tools import tool
 from .config import embeddings
 from typing import Annotated
