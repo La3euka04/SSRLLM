@@ -40,7 +40,7 @@ START_TEXT = (
     "• Send a PDF (up to 20 MB) - add your question as a caption to get an answer right away\n"
     "• /mode - choose Auto, Fast only or Deep always\n"
     f"• Deep research is limited to {DEEP_LIMIT_PER_DAY} per day, /limit shows what is left\n"
-    "• /clear - clear the conversation history and PDFs\n"
+    "• /clear - delete your history and/or PDFs\n"
     "• /help - show this guide again"
 )
 
@@ -51,7 +51,12 @@ MODE_TEXT = (
     "• Deep always - every real question goes to deep research (counts toward the daily limit)"
 )
 
-CLEAR_TEXT = "Clear conversation history and delete your uploaded PDFs?"
+CLEAR_TEXT = (
+    "<b>What do you want to delete?</b>\n"
+    "• History: your questions and the bot's answers\n"
+    "• PDFs: documents you uploaded\n"
+    "• Both"
+)
 
 
 class EditSubtopics(StatesGroup):
@@ -151,6 +156,10 @@ def mode_text(mode: str, left: int) -> str:
         f"Deep research left today: {left} of {DEEP_LIMIT_PER_DAY}"
     )
 
+async def send_clear_panel(m: Message, uid: int):
+    has_pdf = await asyncio.to_thread(user_has_pdf, str(uid))
+    panel = await m.answer(CLEAR_TEXT, reply_markup=kb.clear_kb(has_pdf))
+    delete_later(panel, 60)
 
 async def send_mode_panel(m: Message, uid: int):
     mode = await asyncio.to_thread(get_mode, uid)
@@ -265,15 +274,14 @@ async def cmd_start(m: Message, state: FSMContext):
     await safe_delete(m)
     await state.clear()
     await safe_delete(_last_menu.pop(uid, None))
-    has_pdf = await asyncio.to_thread(user_has_pdf, str(uid))
-    _last_menu[uid] = await m.answer(START_TEXT, reply_markup=kb.main_menu_kb(has_pdf))
+    # has_pdf = await asyncio.to_thread(user_has_pdf, str(uid))
+    _last_menu[uid] = await m.answer(START_TEXT, reply_markup=kb.main_menu_kb())
 
 
 @router.message(TgCommand("clear"))
 async def cmd_clear(m: Message):
     await safe_delete(m)
-    panel = await m.answer(CLEAR_TEXT, reply_markup=kb.confirm_kb("clear:yes"))
-    delete_later(panel, 60)
+    await send_clear_panel(m, m.from_user.id)
 
 
 @router.message(TgCommand("mode"))
@@ -410,10 +418,8 @@ async def cb_mode_set(c: CallbackQuery):
 
 @router.callback_query(F.data == "menu:clear")
 async def cb_menu_clear(c: CallbackQuery):
-    panel = await c.message.answer(CLEAR_TEXT, reply_markup=kb.confirm_kb("clear:yes"))
-    delete_later(panel, 60)
+    await send_clear_panel(c.message, c.from_user.id)
     await c.answer()
-
 
 @router.callback_query(F.data == "menu:delpdf")
 async def cb_menu_delpdf(c: CallbackQuery):
@@ -426,6 +432,32 @@ async def cb_menu_delpdf(c: CallbackQuery):
 async def cb_confirm_no(c: CallbackQuery):
     await c.message.edit_text("Cancelled.")
     delete_later(c.message, 2)
+    await c.answer()
+
+@router.callback_query(F.data.in_({"clear:hist", "clear:pdf", "clear:both"}))
+async def cb_clear(c: CallbackQuery, state: FSMContext):
+    uid = c.from_user.id
+    if get_lock(uid).locked():
+        await c.answer("Wait for the current request to finish", show_alert=True)
+        return
+
+    what = c.data.split(":")[1]          # "hist", "pdf" или "both"
+    try:
+        if what in ("hist", "both"):
+            await drop_stale_menu(c.bot, c.message.chat.id, state)
+            await graph_builder.checkpointer.adelete_thread(str(uid))
+        if what in ("pdf", "both"):
+            await asyncio.to_thread(delete_user_pdf, str(uid))
+        done = {
+            "hist": "💬 History cleared.",
+            "pdf": "🗑 PDFs deleted.",
+            "both": "🧹 History and PDFs cleared.",
+        }[what]
+        await c.message.edit_text(done)
+    except Exception:
+        logger.exception("Failed to clear data")
+        await c.message.edit_text("⚠️ Could not clear data.")
+    delete_later(c.message, 5)
     await c.answer()
 
 

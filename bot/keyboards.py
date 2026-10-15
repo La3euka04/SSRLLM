@@ -4,13 +4,11 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 MODE_LABELS = {"auto": "🤖 Auto", "fast": "⚡ Fast only", "deep": "🔬 Deep always"}
 
 
-def main_menu_kb(has_pdf: bool) -> Markup:
+def main_menu_kb() -> Markup:
     b = InlineKeyboardBuilder()
     b.button(text="📖 How to use", callback_data="menu:help")
     b.button(text="⚙️ Answer mode", callback_data="menu:mode")
-    b.button(text="🧹 Clear history", callback_data="menu:clear")
-    if has_pdf:
-        b.button(text="🗑 Delete my PDFs", callback_data="menu:delpdf")
+    b.button(text="🧹 Clear data", callback_data="menu:clear")
     b.adjust(1)
     return b.as_markup()
 
@@ -27,6 +25,14 @@ def confirm_kb(yes_data: str) -> Markup:
         Btn(text="✅ Yes", callback_data=yes_data),
         Btn(text="↩️ No", callback_data="confirm:no"),
     ]])
+
+def clear_kb(has_pdf: bool) -> Markup:
+    rows = [[Btn(text="💬 History only", callback_data="clear:hist")]]
+    if has_pdf:
+        rows.append([Btn(text="📄 PDFs only", callback_data="clear:pdf")])
+        rows.append([Btn(text="🧹 History + PDFs", callback_data="clear:both")])
+    rows.append([Btn(text="↩️ Cancel", callback_data="confirm:no")])
+    return Markup(inline_keyboard=rows)
 
 
 def deep_kb(qhash: str, left: int) -> Markup:

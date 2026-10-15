@@ -1,6 +1,6 @@
 # <Project name> Research Assistant Telegram Bot (SSRLLM)
 
-A Telegram bot with a built-in AI agent. It answers simple questions instantly
+A Telegram bot with a built-in AI agents. It answers simple questions instantly
 and turns complex ones into structured research reports.
 
 ## Features
@@ -16,14 +16,14 @@ and turns complex ones into structured research reports.
 ## How it works
 
 ```
-Telegram user ──> aiogram handlers (bot/) ──> LangGraph agent (src/)
+Telegram user ──> aiogram handlers (bot/) ──> LangGraph agents (src/)
                                                  ├─ fast track
                                                  └─ deep research (human-in-the-loop:
                                                     the user picks subtopics)
 ```
 
 - `bot/`: Telegram layer (aiogram 3): handlers, inline keyboards
-- `src/`: LangGraph agent, tools, prompts, PDF indexing, usage limits
+- `src/`: LangGraph agents, tools, prompts, PDF indexing, usage limits
 - `DB/`: local SQLite files (created automatically, not committed)
 
 ## Quick start
@@ -38,7 +38,6 @@ python -m venv .venv
 .venv\Scripts\activate          # Linux/macOS: source .venv/bin/activate
 pip install -r requirements.txt
 
-cp .env.example .env            # Windows: copy .env.example .env
 # fill in the values in .env
 
 python main.py
