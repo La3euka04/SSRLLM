@@ -16,20 +16,25 @@ def _conn() -> sqlite3.Connection:
     c = sqlite3.connect(_DB)
     c.execute(
         "CREATE TABLE IF NOT EXISTS deep_usage ("
-        "user_id TEXT, day TEXT, count INTEGER, PRIMARY KEY (user_id, day))"
+        "user_id TEXT, day TEXT, count INTEGER, "
+        "PRIMARY KEY (user_id, day))"
     )
-    c.execute("CREATE TABLE IF NOT EXISTS user_mode (user_id TEXT PRIMARY KEY, mode TEXT)")
+    c.execute(
+        "CREATE TABLE IF NOT EXISTS user_mode"
+        " (user_id TEXT PRIMARY KEY, mode TEXT)"
+        )
     return c
 
 
 def _period() -> str:
-    return date.today().isoformat()   # use a constant like "total" for a lifetime limit
+    return date.today().isoformat()
 
 
 def deep_left(user_id) -> int:
     with _lock, closing(_conn()) as c:
         row = c.execute(
-            "SELECT count FROM deep_usage WHERE user_id=? AND day=?", (str(user_id), _period())
+            "SELECT count FROM deep_usage WHERE user_id=? AND day=?",
+            (str(user_id), _period())
         ).fetchone()
     return max(0, DEEP_LIMIT_PER_DAY - (row[0] if row else 0))
 
@@ -38,14 +43,19 @@ def add_deep_use(user_id) -> None:
     with _lock, closing(_conn()) as c:
         c.execute(
             "INSERT INTO deep_usage (user_id, day, count) VALUES (?, ?, 1) "
-            "ON CONFLICT(user_id, day) DO UPDATE SET count = count + 1",
+            "ON CONFLICT(user_id, day)"
+            " DO UPDATE SET count = count + 1",
             (str(user_id), _period()),
         )
         c.commit()
 
 
 def try_use_deep(user_id) -> int | None:
-    """Atomically consume one deep run. Returns runs left after it, or None if the limit is reached."""
+    """
+    Atomically consume one deep run.
+    Returns runs left after it,
+    or None if the limit is reached.
+    """
     with _lock, closing(_conn()) as c:
         row = c.execute(
             "SELECT count FROM deep_usage WHERE user_id=? AND day=?", (str(user_id), _period())

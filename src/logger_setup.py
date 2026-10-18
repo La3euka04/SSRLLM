@@ -11,7 +11,11 @@ def _short(obj, n: int = 1500) -> str:
 
 
 class FileTracer(BaseTracer):
-    """Writes the whole run tree (chains, LLM calls, tools) to a text file when a root run ends."""
+    """
+    Writes the whole run tree
+    (chains, LLM calls, tools)
+    to a text file when a root run ends.
+    """
 
     def __init__(self, path: str = "log.txt", **kwargs):
         super().__init__(**kwargs)
@@ -24,8 +28,12 @@ class FileTracer(BaseTracer):
 
     def _dump(self, run, f, depth: int) -> None:
         pad = "  " * depth
-        secs = (run.end_time - run.start_time).total_seconds() if run.end_time else 0
-        f.write(f"{pad}[{run.run_type}] {run.name} | {secs:.1f}s | error={run.error}\n")
+        secs = (
+            run.end_time - run.start_time
+            ).total_seconds() if run.end_time else 0
+        f.write(
+            f"{pad}[{run.run_type}] {run.name} | {secs:.1f}s | error={run.error}\n"
+            )
         if run.run_type in ("llm", "chat_model", "tool"):
             f.write(f"{pad}  in : {_short(run.inputs)}\n")
             f.write(f"{pad}  out: {_short(run.outputs)}\n")

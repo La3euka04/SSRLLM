@@ -26,6 +26,7 @@ def confirm_kb(yes_data: str) -> Markup:
         Btn(text="↩️ No", callback_data="confirm:no"),
     ]])
 
+
 def clear_kb(has_pdf: bool) -> Markup:
     rows = [[Btn(text="💬 History only", callback_data="clear:hist")]]
     if has_pdf:

@@ -5,6 +5,7 @@ current_file = Path(__file__).resolve()
 current_dir = current_file.parent
 env_path = current_dir / ".." / ".env"
 
+
 class Settings(BaseSettings):
     LANGSMITH_TRACING: str
     LANGSMITH_API_KEY: str
@@ -14,7 +15,11 @@ class Settings(BaseSettings):
     TAVILY_API_KEY: str
     TELEGRAM_BOT_TOKEN: str
 
-    model_config = SettingsConfigDict(env_file=env_path, env_file_encoding="utf-8")
+    model_config = SettingsConfigDict(
+        env_file=env_path,
+        env_file_encoding="utf-8"
+        )
+
 
 settings = Settings()
 

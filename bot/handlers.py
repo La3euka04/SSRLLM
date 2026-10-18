@@ -421,6 +421,7 @@ async def cb_menu_clear(c: CallbackQuery):
     await send_clear_panel(c.message, c.from_user.id)
     await c.answer()
 
+
 @router.callback_query(F.data == "menu:delpdf")
 async def cb_menu_delpdf(c: CallbackQuery):
     panel = await c.message.answer("Delete all your uploaded PDFs?", reply_markup=kb.confirm_kb("delpdf:yes"))
@@ -433,6 +434,7 @@ async def cb_confirm_no(c: CallbackQuery):
     await c.message.edit_text("Cancelled.")
     delete_later(c.message, 2)
     await c.answer()
+
 
 @router.callback_query(F.data.in_({"clear:hist", "clear:pdf", "clear:both"}))
 async def cb_clear(c: CallbackQuery, state: FSMContext):

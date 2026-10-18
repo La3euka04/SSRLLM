@@ -5,10 +5,12 @@ from langgraph.graph.message import add_messages
 
 RESET = "__RESET__"
 
+
 def reports_reducer(left, right):
     if right == [RESET]:
         return []
     return (left or []) + right
+
 
 class ParentState(TypedDict):
     question: str
@@ -26,11 +28,12 @@ class ParentState(TypedDict):
     history: List[str]
     history_summary: List[str]
     turn_count: int
-    turn_summary_count: int     
+    turn_summary_count: int
     deep_allowed: bool
     limit_hit: bool
     force_deep: bool
     mode: str
+
 
 class AnalystState(TypedDict):
     subtopic: str
