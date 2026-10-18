@@ -29,6 +29,8 @@ SPLIT_LIMIT = 3500
 
 START_TEXT = (
     "👋 <b>Hi! I'm a research assistant.</b>\n\n"
+
+    "• Chat in any language: I reply in the language you write in\n\n"
     "<b>What I can do:</b>\n"
     "• Answer simple questions instantly\n"
     "• Break complex questions into subtopics, let you pick the ones you want, "
@@ -41,7 +43,8 @@ START_TEXT = (
     "• /mode - choose Auto, Fast only or Deep always\n"
     f"• Deep research is limited to {DEEP_LIMIT_PER_DAY} per day, /limit shows what is left\n"
     "• /clear - delete your history and/or PDFs\n"
-    "• /help - show this guide again"
+    "• /help - show this guide again\n\n"
+    "<i>Developed by Petr Bobrikov</i>"
 )
 
 MODE_TEXT = (
