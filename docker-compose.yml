@@ -1,0 +1,9 @@
+services:
+  bot:
+    build: .
+    container_name: ssrllm_bot
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./DB:/app/DB

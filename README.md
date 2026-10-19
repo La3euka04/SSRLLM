@@ -1,6 +1,6 @@
 # <Project name> Research Assistant Telegram Bot (SSRLLM)
 
-A Telegram bot with a built-in AI agents. It answers simple questions instantly
+A Telegram bot with built-in AI agents. It answers simple questions instantly
 and turns complex ones into structured research reports.
 
 ## Features
@@ -28,12 +28,35 @@ Telegram user ──> aiogram handlers (bot/) ──> LangGraph agents (src/)
 
 ## Quick start
 
-**Requirements:** Python 3.14, a Telegram bot token from [@BotFather](https://t.me/BotFather),
+**Requirements:** a Telegram bot token from [@BotFather](https://t.me/BotFather),
 API keys for [Proxyapi](https://proxyapi.ru/) and [tavily](https://www.tavily.com/).
+
+### Option 1: Docker (recommended)
+
+**Requirements:** [Docker](https://docs.docker.com/get-docker/) with Docker Compose.
 
 ```bash
 git clone https://github.com/La3euka04/SSRLLM.git
-cd <repo>
+cd SSRLLM
+
+# fill in the values in .env
+
+docker compose up -d --build
+```
+
+That's it, the bot is running.
+
+
+The `DB/` folder is mounted as a volume, so the SQLite data survives
+container restarts and rebuilds.
+
+### Option 2: Local Python
+
+**Requirements:** Python 3.14.
+
+```bash
+git clone https://github.com/La3euka04/SSRLLM.git
+cd SSRLLM
 python -m venv .venv
 .venv\Scripts\activate          # Linux/macOS: source .venv/bin/activate
 pip install -r requirements.txt
@@ -43,7 +66,6 @@ pip install -r requirements.txt
 python main.py
 ```
 
-
-## Demo 
+## Demo
 
 ![demo](docs/demo.png)  <!-- screenshot or short GIF of the bot -->
